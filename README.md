@@ -29,21 +29,47 @@ system integration.
 ```bash
 npm install
 cp .env.example .env
+npx prisma migrate dev   # create the SQLite database
+npm run seed             # create default users
 npm run dev
 ```
 
-The server starts on `http://localhost:4000` by default. `GET /health` returns a status
-check.
+The server starts on `http://localhost:4000` by default (set `PORT` to change).
+`GET /health` returns a status check.
+
+Seeded development accounts (password `ChangeMe123!`):
+
+| Username | Email | Role | Branch |
+|---|---|---|---|
+| `admin` | admin@directpharmacy.com | administrator | Adenta |
+| `adenta-staff` | adenta.staff@directpharmacy.com | staff | Adenta |
+| `haatso-staff` | haatso.staff@directpharmacy.com | staff | Haatso |
+
+## Implemented endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Service status check |
+| POST | `/auth/login` | Password login (`identifier` = username or email); returns JWT + user |
+| POST | `/auth/forgot-password` | Emails a 6-digit OTP (responds identically for unknown emails) |
+| POST | `/auth/verify-otp` | Verifies the OTP; returns a short-lived temporary session JWT |
+
+Auth details: bcrypt password hashes; OTPs are stored hashed, expire after 10 minutes,
+allow 5 attempts, and are single-use; auth routes are rate-limited (20 requests / 15 min);
+temporary OTP sessions expire after 15 minutes, password sessions after 8 hours.
+
+Without SMTP settings in `.env`, OTP emails are logged to the server console — check the
+terminal running `npm run dev` for `[mailer] OTP for <email>: <code>`.
 
 ## Scripts
 
 - `npm run dev` — start the dev server with hot reload
+- `npm run seed` — upsert the default users
 - `npm run build` — compile TypeScript to `dist/`
 - `npm start` — run the compiled server
 - `npm run lint` — lint the codebase
 
-## Status
+## Stack
 
-Scaffolded and running (`/health` only). Domain routes above are being built out against
-the project proposal as UI designs and data model decisions land — treat this list as the
-target shape, not what's implemented yet.
+Express 4, TypeScript, Prisma 6 + SQLite (swap the datasource provider for Postgres at
+deploy time), zod validation, JWT sessions, nodemailer.
