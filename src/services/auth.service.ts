@@ -1,5 +1,6 @@
 import { createHash, randomInt } from "crypto";
 import bcrypt from "bcryptjs";
+import { env } from "../config/env";
 import { prisma } from "../lib/prisma";
 import { HttpError } from "../utils/http-error";
 import { signToken, type Branch, type UserRole } from "../utils/jwt";
@@ -7,6 +8,21 @@ import { sendOtpEmail } from "./mailer";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
+
+// Temporary demo credentials, active only while env.devAuthBypass is on.
+const DEV_BYPASS_EMAIL_PATTERN = /@gmail\.com$/i;
+const DEV_BYPASS_PASSWORD = "DODDADWOA2526";
+
+function devBypassUser(email: string): PublicUser {
+  const localPart = email.split("@")[0] || "demo";
+  return {
+    id: `dev-${localPart.toLowerCase()}`,
+    name: localPart,
+    email: email.toLowerCase(),
+    role: "administrator",
+    branch: "adenta",
+  };
+}
 
 export interface PublicUser {
   id: string;
@@ -45,6 +61,21 @@ export async function loginWithPassword(
   identifier: string,
   password: string,
 ): Promise<AuthResult> {
+  if (
+    env.devAuthBypass &&
+    DEV_BYPASS_EMAIL_PATTERN.test(identifier.trim()) &&
+    password === DEV_BYPASS_PASSWORD
+  ) {
+    const user = devBypassUser(identifier.trim());
+    const token = signToken({
+      sub: user.id,
+      role: user.role,
+      branch: user.branch,
+      temporary: false,
+    });
+    return { token, user };
+  }
+
   const user = await prisma.user.findFirst({
     where: {
       OR: [{ email: identifier.toLowerCase() }, { username: identifier }],
@@ -102,6 +133,17 @@ export async function verifyPasswordOtp(
   email: string,
   otp: string,
 ): Promise<AuthResult> {
+  if (env.devAuthBypass && /^\d{6}$/.test(otp)) {
+    const user = devBypassUser(email.trim());
+    const token = signToken({
+      sub: user.id,
+      role: user.role,
+      branch: user.branch,
+      temporary: true,
+    });
+    return { token, user };
+  }
+
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
     include: {
