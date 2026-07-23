@@ -13,14 +13,25 @@ const CRITICAL_EXPIRY_WINDOW_DAYS = 90;
 export interface MedicineDto {
   id: string;
   name: string;
+  genericName: string;
   strength: string;
   form: string;
   packaging: string;
   category: string;
   batchNo: string;
   branch: string;
+  manufacturer: string;
+  supplier: string;
+  stockCategory: string;
   quantity: number;
+  unitOfMeasurement: string;
   unitPriceGhs: number;
+  sellingPriceGhs: number | null;
+  storageLocation: string;
+  lowStockThreshold: number;
+  reorderLevel: number | null;
+  manufacturingDate: string | null;
+  internalNotes: string;
   expiryDate: string;
   status: MedicineStatus;
 }
@@ -40,17 +51,34 @@ function toDto(medicine: Medicine): MedicineDto {
   return {
     id: medicine.id,
     name: medicine.name,
+    genericName: medicine.genericName,
     strength: medicine.strength,
     form: medicine.form,
     packaging: medicine.packaging,
     category: medicine.category,
     batchNo: medicine.batchNo,
     branch: medicine.branch,
+    manufacturer: medicine.manufacturer,
+    supplier: medicine.supplier,
+    stockCategory: medicine.stockCategory,
     quantity: medicine.quantity,
+    unitOfMeasurement: medicine.unitOfMeasurement,
     unitPriceGhs: medicine.unitPriceGhs,
+    sellingPriceGhs: medicine.sellingPriceGhs,
+    storageLocation: medicine.storageLocation,
+    lowStockThreshold: medicine.lowStockThreshold,
+    reorderLevel: medicine.reorderLevel,
+    manufacturingDate: medicine.manufacturingDate?.toISOString() ?? null,
+    internalNotes: medicine.internalNotes,
     expiryDate: medicine.expiryDate.toISOString(),
     status: deriveStatus(medicine),
   };
+}
+
+export async function getMedicine(id: string): Promise<MedicineDto> {
+  const medicine = await prisma.medicine.findUnique({ where: { id } });
+  if (!medicine) throw new HttpError(404, "Medicine not found.");
+  return toDto(medicine);
 }
 
 export interface ListMedicinesParams {
@@ -124,32 +152,63 @@ export interface MedicinesSummary {
   lowStockAlerts: number;
   stockOuts: number;
   stockOutBranches: number;
+  lastBatchNo: string | null;
 }
 
 export async function getSummary(): Promise<MedicinesSummary> {
   const rows = await prisma.medicine.findMany();
   const statuses = rows.map((row) => ({ row, status: deriveStatus(row) }));
   const stockOutRows = statuses.filter((s) => s.status === "out-of-stock");
+  const latest = await prisma.medicine.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: { batchNo: true },
+  });
   return {
     totalSkus: rows.length,
     lowStockAlerts: statuses.filter((s) => s.status === "low-stock").length,
     stockOuts: stockOutRows.length,
     stockOutBranches: new Set(stockOutRows.map((s) => s.row.branch)).size,
+    lastBatchNo: latest?.batchNo ?? null,
   };
 }
 
 export interface MedicineInput {
   name: string;
+  genericName?: string;
   strength?: string;
   form: string;
-  packaging: string;
+  packaging?: string;
   category: string;
   batchNo: string;
   branch: string;
+  manufacturer?: string;
+  supplier?: string;
+  stockCategory?: string;
   quantity: number;
+  unitOfMeasurement?: string;
   unitPriceGhs: number;
+  sellingPriceGhs?: number | null;
+  storageLocation?: string;
   lowStockThreshold?: number;
+  reorderLevel?: number | null;
+  manufacturingDate?: string | null;
+  internalNotes?: string;
   expiryDate: string;
+}
+
+const MIN_EXPIRY_MONTHS_AHEAD = 6;
+
+function toData(input: Partial<MedicineInput>) {
+  return {
+    ...input,
+    expiryDate: input.expiryDate ? new Date(input.expiryDate) : undefined,
+    manufacturingDate:
+      input.manufacturingDate === undefined
+        ? undefined
+        : input.manufacturingDate
+          ? new Date(input.manufacturingDate)
+          : null,
+  };
 }
 
 export async function createMedicine(input: MedicineInput): Promise<MedicineDto> {
@@ -159,8 +218,31 @@ export async function createMedicine(input: MedicineInput): Promise<MedicineDto>
   if (existing) {
     throw new HttpError(409, `Batch ${input.batchNo} already exists.`);
   }
+
+  // Inventory guideline: newly registered stock must have at least six
+  // months of shelf life. (Edits are exempt — existing stock ages.)
+  const minExpiry = new Date();
+  minExpiry.setMonth(minExpiry.getMonth() + MIN_EXPIRY_MONTHS_AHEAD);
+  if (new Date(input.expiryDate) < minExpiry) {
+    throw new HttpError(
+      400,
+      `Expiry date must be at least ${MIN_EXPIRY_MONTHS_AHEAD} months from today.`,
+    );
+  }
+
   const created = await prisma.medicine.create({
-    data: { ...input, expiryDate: new Date(input.expiryDate) },
+    data: {
+      ...toData(input),
+      name: input.name,
+      form: input.form,
+      packaging: input.packaging ?? "",
+      category: input.category,
+      batchNo: input.batchNo,
+      branch: input.branch,
+      quantity: input.quantity,
+      unitPriceGhs: input.unitPriceGhs,
+      expiryDate: new Date(input.expiryDate),
+    },
   });
   return toDto(created);
 }
@@ -171,12 +253,15 @@ export async function updateMedicine(
 ): Promise<MedicineDto> {
   const existing = await prisma.medicine.findUnique({ where: { id } });
   if (!existing) throw new HttpError(404, "Medicine not found.");
+  if (input.batchNo && input.batchNo !== existing.batchNo) {
+    const clash = await prisma.medicine.findUnique({
+      where: { batchNo: input.batchNo },
+    });
+    if (clash) throw new HttpError(409, `Batch ${input.batchNo} already exists.`);
+  }
   const updated = await prisma.medicine.update({
     where: { id },
-    data: {
-      ...input,
-      expiryDate: input.expiryDate ? new Date(input.expiryDate) : undefined,
-    },
+    data: toData(input),
   });
   return toDto(updated);
 }

@@ -24,23 +24,31 @@ model User {
 }
 
 model Medicine {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   name              String
-  strength          String   @default("")
+  genericName       String    @default("")
+  strength          String    @default("")
   form              String
   packaging         String
   category          String
-  batchNo           String   @unique
+  batchNo           String    @unique
   branch            String
-  manufacturer      String   @default("Unspecified")
+  manufacturer      String    @default("Unspecified")
+  supplier          String    @default("")
   // "essential" | "cold-chain" | "restricted" — constrained by zod at the API boundary
-  stockCategory     String   @default("essential")
+  stockCategory     String    @default("essential")
   quantity          Int
+  unitOfMeasurement String    @default("Units")
   unitPriceGhs      Float
-  lowStockThreshold Int      @default(50)
+  sellingPriceGhs   Float?
+  storageLocation   String    @default("")
+  lowStockThreshold Int       @default(50)
+  reorderLevel      Int?
+  manufacturingDate DateTime?
+  internalNotes     String    @default("")
   expiryDate        DateTime
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   expiryActions ExpiryAction[]
 
