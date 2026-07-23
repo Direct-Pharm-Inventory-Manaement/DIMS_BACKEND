@@ -32,6 +32,9 @@ model Medicine {
   category          String
   batchNo           String   @unique
   branch            String
+  manufacturer      String   @default("Unspecified")
+  // "essential" | "cold-chain" | "restricted" — constrained by zod at the API boundary
+  stockCategory     String   @default("essential")
   quantity          Int
   unitPriceGhs      Float
   lowStockThreshold Int      @default(50)
@@ -39,8 +42,22 @@ model Medicine {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  expiryActions ExpiryAction[]
+
   @@index([category])
   @@index([branch])
+}
+
+model ExpiryAction {
+  id         String   @id @default(cuid())
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  // "clearance" | "transfer" | "review"
+  type       String
+  note       String
+  createdAt  DateTime @default(now())
+
+  @@index([medicineId])
 }
 
 model PasswordOtp {

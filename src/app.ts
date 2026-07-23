@@ -3,6 +3,7 @@ import express from "express";
 import { env } from "./config/env";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import authRouter from "./routes/auth";
+import expiryRiskRouter from "./routes/expiry-risk";
 import healthRouter from "./routes/health";
 import medicinesRouter from "./routes/medicines";
 
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use("/health", healthRouter);
 app.use("/auth", authRouter);
 app.use("/medicines", medicinesRouter);
+app.use("/expiry-risk", expiryRiskRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
