@@ -23,6 +23,26 @@ model User {
   passwordOtps PasswordOtp[]
 }
 
+model Medicine {
+  id                String   @id @default(cuid())
+  name              String
+  strength          String   @default("")
+  form              String
+  packaging         String
+  category          String
+  batchNo           String   @unique
+  branch            String
+  quantity          Int
+  unitPriceGhs      Float
+  lowStockThreshold Int      @default(50)
+  expiryDate        DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([category])
+  @@index([branch])
+}
+
 model PasswordOtp {
   id         String    @id @default(cuid())
   userId     String
