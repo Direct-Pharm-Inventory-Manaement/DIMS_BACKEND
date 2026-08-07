@@ -19,9 +19,14 @@ const baseQuerySchema = z.object({
 });
 
 const listQuerySchema = baseQuerySchema.extend({
-  outOfStockOnly: z.coerce.boolean().default(false),
+  // z.coerce.boolean() would treat the literal string "false" as truthy
+  // (any non-empty string coerces to true) — parse the actual value instead.
+  outOfStockOnly: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(4),
+  pageSize: z.coerce.number().int().min(1).max(500).default(4),
 });
 
 router.get("/summary", async (req: Request, res: Response, next: NextFunction) => {
