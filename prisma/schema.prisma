@@ -53,12 +53,26 @@ model Medicine {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  expiryActions     ExpiryAction[]
-  transferRequests  TransferRequest[]
+  expiryActions      ExpiryAction[]
+  transferRequests   TransferRequest[]
+  consumptionRecords ConsumptionRecord[]
 
   @@unique([batchNo, branch])
   @@index([category])
   @@index([branch])
+}
+
+/** One row per medicine per day — daily units dispensed, the basis for usage-rate predictions. */
+model ConsumptionRecord {
+  id         String   @id @default(cuid())
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  date       DateTime
+  quantity   Int
+
+  @@unique([medicineId, date])
+  @@index([medicineId])
+  @@index([date])
 }
 
 model ExpiryAction {

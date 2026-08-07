@@ -5,6 +5,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import authRouter from "./routes/auth";
 import expiryRiskRouter from "./routes/expiry-risk";
 import healthRouter from "./routes/health";
+import lowStockRouter from "./routes/low-stock";
 import medicinesRouter from "./routes/medicines";
 import transfersRouter from "./routes/transfers";
 
@@ -18,6 +19,7 @@ app.use("/auth", authRouter);
 app.use("/medicines", medicinesRouter);
 app.use("/expiry-risk", expiryRiskRouter);
 app.use("/transfers", transfersRouter);
+app.use("/low-stock", lowStockRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
