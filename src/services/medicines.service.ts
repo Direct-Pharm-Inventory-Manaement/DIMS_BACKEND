@@ -213,10 +213,13 @@ function toData(input: Partial<MedicineInput>) {
 
 export async function createMedicine(input: MedicineInput): Promise<MedicineDto> {
   const existing = await prisma.medicine.findUnique({
-    where: { batchNo: input.batchNo },
+    where: { batchNo_branch: { batchNo: input.batchNo, branch: input.branch } },
   });
   if (existing) {
-    throw new HttpError(409, `Batch ${input.batchNo} already exists.`);
+    throw new HttpError(
+      409,
+      `Batch ${input.batchNo} already exists at ${input.branch}.`,
+    );
   }
 
   // Inventory guideline: newly registered stock must have at least six
@@ -253,11 +256,15 @@ export async function updateMedicine(
 ): Promise<MedicineDto> {
   const existing = await prisma.medicine.findUnique({ where: { id } });
   if (!existing) throw new HttpError(404, "Medicine not found.");
-  if (input.batchNo && input.batchNo !== existing.batchNo) {
+  const nextBatchNo = input.batchNo ?? existing.batchNo;
+  const nextBranch = input.branch ?? existing.branch;
+  if (nextBatchNo !== existing.batchNo || nextBranch !== existing.branch) {
     const clash = await prisma.medicine.findUnique({
-      where: { batchNo: input.batchNo },
+      where: { batchNo_branch: { batchNo: nextBatchNo, branch: nextBranch } },
     });
-    if (clash) throw new HttpError(409, `Batch ${input.batchNo} already exists.`);
+    if (clash) {
+      throw new HttpError(409, `Batch ${nextBatchNo} already exists at ${nextBranch}.`);
+    }
   }
   const updated = await prisma.medicine.update({
     where: { id },

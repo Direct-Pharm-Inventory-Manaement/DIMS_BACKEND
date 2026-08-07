@@ -20,7 +20,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  passwordOtps PasswordOtp[]
+  passwordOtps      PasswordOtp[]
+  transferRequests  TransferRequest[]
 }
 
 model Medicine {
@@ -31,7 +32,9 @@ model Medicine {
   form              String
   packaging         String
   category          String
-  batchNo           String    @unique
+  // Unique per branch, not globally: the same batch can exist at multiple
+  // branches once stock is transferred between them.
+  batchNo           String
   branch            String
   manufacturer      String    @default("Unspecified")
   supplier          String    @default("")
@@ -50,8 +53,10 @@ model Medicine {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  expiryActions ExpiryAction[]
+  expiryActions     ExpiryAction[]
+  transferRequests  TransferRequest[]
 
+  @@unique([batchNo, branch])
   @@index([category])
   @@index([branch])
 }
@@ -66,6 +71,32 @@ model ExpiryAction {
   createdAt  DateTime @default(now())
 
   @@index([medicineId])
+}
+
+model TransferRequest {
+  id                String    @id @default(cuid())
+  code              String    @unique
+  medicineId        String
+  medicine          Medicine  @relation(fields: [medicineId], references: [id])
+  // Snapshot fields so the request stays readable even if the medicine
+  // row is later edited or deleted.
+  medicineName      String
+  batchNo           String
+  packaging         String
+  sourceBranch      String
+  destinationBranch String
+  quantity          Int
+  // "pending" | "approved" | "rejected" | "completed"
+  status            String    @default("pending")
+  requestedById     String
+  requestedBy       User      @relation(fields: [requestedById], references: [id])
+  reviewNote        String    @default("")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completedAt       DateTime?
+
+  @@index([status])
+  @@index([sourceBranch])
 }
 
 model PasswordOtp {

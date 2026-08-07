@@ -69,7 +69,7 @@ async function main() {
     // Re-seeding refreshes quantities and expiry dates so derived
     // statuses stay meaningful relative to the current date.
     await prisma.medicine.upsert({
-      where: { batchNo: medicine.batchNo },
+      where: { batchNo_branch: { batchNo: medicine.batchNo, branch: medicine.branch } },
       update: {
         quantity: medicine.quantity,
         expiryDate: medicine.expiryDate,
@@ -79,8 +79,113 @@ async function main() {
       create: medicine,
     });
   }
+
+  const admin = await prisma.user.findUniqueOrThrow({ where: { email: "admin@directpharmacy.com" } });
+  const adentaStaff = await prisma.user.findUniqueOrThrow({ where: { email: "adenta.staff@directpharmacy.com" } });
+  const haatsoStaff = await prisma.user.findUniqueOrThrow({ where: { email: "haatso.staff@directpharmacy.com" } });
+
+  const lisinopril = await prisma.medicine.findUniqueOrThrow({
+    where: { batchNo_branch: { batchNo: "B-55118-LIS", branch: "Adenta Main" } },
+  });
+  const cetirizine = await prisma.medicine.findUniqueOrThrow({
+    where: { batchNo_branch: { batchNo: "B-70233-CET", branch: "East Legon" } },
+  });
+  const rabiesVaccine = await prisma.medicine.findUniqueOrThrow({
+    where: { batchNo_branch: { batchNo: "B-24680-RBV", branch: "Haatso" } },
+  });
+  const ibuprofen = await prisma.medicine.findUniqueOrThrow({
+    where: { batchNo_branch: { batchNo: "B-60912-IBU", branch: "Adenta Main" } },
+  });
+
+  const transfers = [
+    {
+      code: "TRF-2607-001",
+      medicine: lisinopril,
+      destinationBranch: "East Legon",
+      quantity: 120,
+      status: "pending",
+      requestedBy: adentaStaff,
+      reviewNote: "",
+    },
+    {
+      code: "TRF-2607-002",
+      medicine: cetirizine,
+      destinationBranch: "Adenta Main",
+      quantity: 15,
+      status: "approved",
+      requestedBy: haatsoStaff,
+      reviewNote: "",
+    },
+    {
+      code: "TRF-2607-003",
+      medicine: rabiesVaccine,
+      destinationBranch: "Adenta Main",
+      quantity: 10,
+      status: "rejected",
+      requestedBy: haatsoStaff,
+      reviewNote: "Cold-chain transport unavailable this week.",
+    },
+    {
+      code: "TRF-2607-004",
+      medicine: ibuprofen,
+      destinationBranch: "Haatso",
+      quantity: 200,
+      status: "completed",
+      requestedBy: admin,
+      reviewNote: "",
+      completedAt: new Date(),
+    },
+  ] as const;
+
+  for (const t of transfers) {
+    const existing = await prisma.transferRequest.findUnique({ where: { code: t.code } });
+    if (existing) continue; // Already seeded (and, if completed, stock already moved).
+
+    await prisma.transferRequest.create({
+      data: {
+        code: t.code,
+        medicineId: t.medicine.id,
+        medicineName: `${t.medicine.name} ${t.medicine.strength}`.trim(),
+        batchNo: t.medicine.batchNo,
+        packaging: t.medicine.packaging,
+        sourceBranch: t.medicine.branch,
+        destinationBranch: t.destinationBranch,
+        quantity: t.quantity,
+        status: t.status,
+        requestedById: t.requestedBy.id,
+        reviewNote: t.reviewNote,
+        completedAt: "completedAt" in t ? t.completedAt : null,
+      },
+    });
+
+    // Mirror completeTransfer's real stock movement so seeded "completed"
+    // rows leave the database in a state consistent with their status.
+    if (t.status === "completed") {
+      await prisma.medicine.update({
+        where: { id: t.medicine.id },
+        data: { quantity: { decrement: t.quantity } },
+      });
+      const destKey = {
+        batchNo_branch: { batchNo: t.medicine.batchNo, branch: t.destinationBranch },
+      };
+      const destination = await prisma.medicine.findUnique({ where: destKey });
+      if (destination) {
+        await prisma.medicine.update({
+          where: destKey,
+          data: { quantity: { increment: t.quantity } },
+        });
+      } else {
+        const { id: _id, quantity: _qty, branch: _branch, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } =
+          t.medicine;
+        await prisma.medicine.create({
+          data: { ...rest, branch: t.destinationBranch, quantity: t.quantity },
+        });
+      }
+    }
+  }
+
   console.log(
-    `Seeded ${users.length} users (password: ${DEFAULT_PASSWORD} — change in production) and ${medicines.length} medicines.`,
+    `Seeded ${users.length} users (password: ${DEFAULT_PASSWORD} — change in production), ${medicines.length} medicines, and ${transfers.length} transfer requests.`,
   );
 }
 

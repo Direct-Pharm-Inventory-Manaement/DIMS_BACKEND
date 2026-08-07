@@ -6,6 +6,7 @@ import authRouter from "./routes/auth";
 import expiryRiskRouter from "./routes/expiry-risk";
 import healthRouter from "./routes/health";
 import medicinesRouter from "./routes/medicines";
+import transfersRouter from "./routes/transfers";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use("/health", healthRouter);
 app.use("/auth", authRouter);
 app.use("/medicines", medicinesRouter);
 app.use("/expiry-risk", expiryRiskRouter);
+app.use("/transfers", transfersRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
