@@ -2,6 +2,7 @@ import { prisma } from "../lib/prisma";
 import { HttpError } from "../utils/http-error";
 
 export type TransferStatus = "pending" | "approved" | "rejected" | "completed";
+export type TransferPriority = "standard" | "express" | "critical";
 
 export interface TransferDto {
   id: string;
@@ -14,6 +15,9 @@ export interface TransferDto {
   destinationBranch: string;
   quantity: number;
   status: TransferStatus;
+  priority: TransferPriority;
+  requestedDeliveryDate: string | null;
+  notes: string;
   requestedBy: { id: string; name: string };
   reviewNote: string;
   createdAt: string;
@@ -36,6 +40,9 @@ function toDto(
     destinationBranch: row.destinationBranch,
     quantity: row.quantity,
     status: row.status as TransferStatus,
+    priority: row.priority as TransferPriority,
+    requestedDeliveryDate: row.requestedDeliveryDate?.toISOString() ?? null,
+    notes: row.notes,
     requestedBy: row.requestedBy,
     reviewNote: row.reviewNote,
     createdAt: row.createdAt.toISOString(),
@@ -151,6 +158,9 @@ export interface CreateTransferInput {
   medicineId: string;
   destinationBranch: string;
   quantity: number;
+  priority?: TransferPriority;
+  requestedDeliveryDate?: string | null;
+  notes?: string;
 }
 
 export async function createTransfer(
@@ -183,6 +193,11 @@ export async function createTransfer(
       sourceBranch: medicine.branch,
       destinationBranch: input.destinationBranch,
       quantity: input.quantity,
+      priority: input.priority ?? "standard",
+      requestedDeliveryDate: input.requestedDeliveryDate
+        ? new Date(input.requestedDeliveryDate)
+        : null,
+      notes: input.notes ?? "",
       requestedById,
     },
     include: { requestedBy: REQUESTED_BY_SELECT },

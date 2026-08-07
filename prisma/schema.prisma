@@ -102,6 +102,12 @@ model TransferRequest {
   quantity          Int
   // "pending" | "approved" | "rejected" | "completed"
   status            String    @default("pending")
+  // "standard" | "express" | "critical"
+  priority          String    @default("standard")
+  requestedDeliveryDate DateTime?
+  // Requester's context at submission time — distinct from reviewNote,
+  // which belongs to whoever approves/rejects.
+  notes             String    @default("")
   requestedById     String
   requestedBy       User      @relation(fields: [requestedById], references: [id])
   reviewNote        String    @default("")

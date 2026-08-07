@@ -28,6 +28,9 @@ const createSchema = z.object({
   medicineId: z.string().min(1),
   destinationBranch: z.string().trim().min(1, "Destination branch is required."),
   quantity: z.number().int().positive("Quantity must be greater than zero."),
+  priority: z.enum(["standard", "express", "critical"]).optional(),
+  requestedDeliveryDate: z.iso.date().optional(),
+  notes: z.string().trim().max(1000).optional(),
 });
 
 const rejectSchema = z.object({
