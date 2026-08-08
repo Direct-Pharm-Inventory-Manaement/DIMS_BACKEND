@@ -18,7 +18,13 @@ const ROLE_ENUM = z.enum(["super_admin", "administrator", "pharmacist", "store_m
 
 const listQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
-  role: ROLE_ENUM.optional(),
+  // Comma-separated, e.g. "super_admin,administrator" — lets a UI tab
+  // group multiple roles (an "Administrators" tab) in one request.
+  role: z
+    .string()
+    .min(1)
+    .optional()
+    .transform((v) => v?.split(",").map((r) => ROLE_ENUM.parse(r.trim()))),
   branch: z.string().min(1).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(500).default(10),

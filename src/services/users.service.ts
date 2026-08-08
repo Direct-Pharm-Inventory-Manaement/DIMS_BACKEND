@@ -45,7 +45,7 @@ function toDto(user: User): UserDto {
 
 export interface ListUsersParams {
   search?: string;
-  role?: UserRole;
+  role?: UserRole[];
   branch?: string;
   page: number;
   pageSize: number;
@@ -58,7 +58,7 @@ export async function listUsers(params: ListUsersParams): Promise<{
   pageSize: number;
 }> {
   const where = {
-    role: params.role,
+    role: params.role ? { in: params.role } : undefined,
     branch: params.branch,
     OR: params.search
       ? [
