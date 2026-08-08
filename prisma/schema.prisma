@@ -10,15 +10,19 @@ datasource db {
 // SQLite has no native enums; role and branch are constrained by zod
 // schemas at the API boundary ("administrator" | "staff", "adenta" | "haatso").
 model User {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   name         String
-  email        String   @unique
-  username     String   @unique
+  email        String    @unique
+  username     String    @unique
   passwordHash String
+  // "super_admin" | "administrator" | "pharmacist" | "store_manager" | "cashier"
   role         String
   branch       String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  // "active" | "suspended" — suspended users are blocked at login
+  status       String    @default("active")
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   passwordOtps      PasswordOtp[]
   transferRequests  TransferRequest[]

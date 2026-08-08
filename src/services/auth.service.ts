@@ -20,7 +20,7 @@ function devBypassUser(email: string): PublicUser {
     name: localPart,
     email: email.toLowerCase(),
     role: "administrator",
-    branch: "adenta",
+    branch: "Adenta Main",
   };
 }
 
@@ -93,6 +93,11 @@ export async function loginWithPassword(
   if (!user || !passwordMatches) {
     throw new HttpError(401, "Incorrect username/email or password.");
   }
+  if (user.status === "suspended") {
+    throw new HttpError(403, "This account has been suspended. Contact your administrator.");
+  }
+
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
   const token = signToken({
     sub: user.id,
@@ -170,11 +175,17 @@ export async function verifyPasswordOtp(
     });
     throw new HttpError(401, "Incorrect code. Please check and try again.");
   }
+  if (user.status === "suspended") {
+    throw new HttpError(403, "This account has been suspended. Contact your administrator.");
+  }
 
-  await prisma.passwordOtp.update({
-    where: { id: record.id },
-    data: { consumedAt: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.passwordOtp.update({
+      where: { id: record.id },
+      data: { consumedAt: new Date() },
+    }),
+    prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
+  ]);
 
   const token = signToken({
     sub: user.id,

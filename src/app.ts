@@ -8,6 +8,7 @@ import healthRouter from "./routes/health";
 import lowStockRouter from "./routes/low-stock";
 import medicinesRouter from "./routes/medicines";
 import transfersRouter from "./routes/transfers";
+import usersRouter from "./routes/users";
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use("/medicines", medicinesRouter);
 app.use("/expiry-risk", expiryRiskRouter);
 app.use("/transfers", transfersRouter);
 app.use("/low-stock", lowStockRouter);
+app.use("/users", usersRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

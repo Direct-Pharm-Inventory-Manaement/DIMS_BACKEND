@@ -1,8 +1,13 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 
-export type UserRole = "administrator" | "staff";
-export type Branch = "adenta" | "haatso";
+export type UserRole =
+  | "super_admin"
+  | "administrator"
+  | "pharmacist"
+  | "store_manager"
+  | "cashier";
+export type Branch = "Adenta Main" | "East Legon" | "Haatso";
 
 export interface TokenPayload {
   sub: string;

@@ -5,27 +5,115 @@ const prisma = new PrismaClient();
 
 const DEFAULT_PASSWORD = "ChangeMe123!";
 
+/** Relative to seed time, so "online now" stays meaningful across reseeds. */
+function minutesAgo(minutes: number): Date {
+  return new Date(Date.now() - minutes * 60 * 1000);
+}
+function daysAgo(days: number): Date {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
 const users = [
+  // Original three — usernames/emails kept stable since the README documents
+  // them as demo login credentials.
   {
     name: "System Administrator",
     email: "admin@directpharmacy.com",
     username: "admin",
-    role: "administrator",
-    branch: "adenta",
+    role: "super_admin",
+    branch: "Adenta Main",
+    status: "active",
+    lastLoginAt: minutesAgo(5),
   },
   {
     name: "Adenta Staff",
     email: "adenta.staff@directpharmacy.com",
     username: "adenta-staff",
-    role: "staff",
-    branch: "adenta",
+    role: "pharmacist",
+    branch: "Adenta Main",
+    status: "active",
+    lastLoginAt: minutesAgo(8),
   },
   {
     name: "Haatso Staff",
     email: "haatso.staff@directpharmacy.com",
     username: "haatso-staff",
-    role: "staff",
-    branch: "haatso",
+    role: "store_manager",
+    branch: "Haatso",
+    status: "active",
+    lastLoginAt: daysAgo(2),
+  },
+  {
+    name: "Kwame Owusu",
+    email: "kwame.o@directpharma.com",
+    username: "kowusu_adm",
+    role: "administrator",
+    branch: "Adenta Main",
+    status: "active",
+    lastLoginAt: minutesAgo(10),
+  },
+  {
+    name: "Sarah Appiah",
+    email: "sarah.a@directpharma.com",
+    username: "sappiah_ph",
+    role: "pharmacist",
+    branch: "East Legon",
+    status: "active",
+    lastLoginAt: minutesAgo(120),
+  },
+  {
+    name: "Benjamin Tetteh",
+    email: "ben.t@directpharma.com",
+    username: "btetteh_mgr",
+    role: "store_manager",
+    branch: "Haatso",
+    status: "active",
+    lastLoginAt: daysAgo(1),
+  },
+  {
+    name: "Mercy Adu",
+    email: "mercy.adu@directpharma.com",
+    username: "madu_sales",
+    role: "cashier",
+    branch: "Adenta Main",
+    status: "suspended",
+    lastLoginAt: daysAgo(14),
+  },
+  {
+    name: "Josephine Mensah",
+    email: "josephine.m@directpharma.com",
+    username: "jmensah_ph",
+    role: "pharmacist",
+    branch: "Haatso",
+    status: "active",
+    lastLoginAt: null,
+  },
+  {
+    name: "Kojo Addo",
+    email: "kojo.addo@directpharma.com",
+    username: "kaddo_csh",
+    role: "cashier",
+    branch: "East Legon",
+    status: "active",
+    lastLoginAt: minutesAgo(360),
+  },
+  {
+    name: "Ama Boateng",
+    email: "ama.boateng@directpharma.com",
+    username: "aboateng_mgr",
+    role: "store_manager",
+    branch: "East Legon",
+    status: "active",
+    lastLoginAt: minutesAgo(12),
+  },
+  {
+    name: "Esi Nkrumah",
+    email: "esi.nkrumah@directpharma.com",
+    username: "enkrumah_adm",
+    role: "administrator",
+    branch: "Haatso",
+    status: "suspended",
+    lastLoginAt: daysAgo(20),
   },
 ];
 
@@ -117,9 +205,16 @@ const medicines = [
 async function main() {
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
   for (const user of users) {
+    // Re-seeding refreshes role/status/lastLoginAt so "online now" and
+    // suspended demos stay meaningful relative to the current date.
     await prisma.user.upsert({
       where: { email: user.email },
-      update: {},
+      update: {
+        role: user.role,
+        branch: user.branch,
+        status: user.status,
+        lastLoginAt: user.lastLoginAt,
+      },
       create: { ...user, passwordHash },
     });
   }
