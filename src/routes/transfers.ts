@@ -6,6 +6,7 @@ import {
   completeTransfer,
   createTransfer,
   getBranches,
+  getReportSummary,
   getSummary,
   listTransfers,
   rejectTransfer,
@@ -53,6 +54,15 @@ router.get("/facets", async (_req, res, next) => {
   }
 });
 
+router.get("/report-summary", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { page: _page, pageSize: _pageSize, ...filters } = listQuerySchema.parse(req.query);
+    res.json(await getReportSummary(filters));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(await listTransfers(listQuerySchema.parse(req.query)));
@@ -72,7 +82,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
 
 router.post("/:id/approve", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(await approveTransfer(req.params.id));
+    res.json(await approveTransfer(req.params.id, req.user!.sub));
   } catch (error) {
     next(error);
   }
@@ -81,7 +91,7 @@ router.post("/:id/approve", async (req: Request, res: Response, next: NextFuncti
 router.post("/:id/reject", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { reviewNote } = rejectSchema.parse(req.body);
-    res.json(await rejectTransfer(req.params.id, reviewNote));
+    res.json(await rejectTransfer(req.params.id, reviewNote, req.user!.sub));
   } catch (error) {
     next(error);
   }

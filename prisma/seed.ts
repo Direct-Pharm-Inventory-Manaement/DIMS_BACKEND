@@ -308,6 +308,7 @@ async function main() {
       quantity: 15,
       status: "approved",
       requestedBy: haatsoStaff,
+      reviewedBy: admin,
       reviewNote: "",
     },
     {
@@ -317,6 +318,7 @@ async function main() {
       quantity: 10,
       status: "rejected",
       requestedBy: haatsoStaff,
+      reviewedBy: admin,
       reviewNote: "Cold-chain transport unavailable this week.",
     },
     {
@@ -326,6 +328,7 @@ async function main() {
       quantity: 200,
       status: "completed",
       requestedBy: admin,
+      reviewedBy: admin,
       reviewNote: "",
       completedAt: new Date(),
     },
@@ -347,6 +350,7 @@ async function main() {
         quantity: t.quantity,
         status: t.status,
         requestedById: t.requestedBy.id,
+        reviewedById: "reviewedBy" in t ? t.reviewedBy.id : null,
         reviewNote: t.reviewNote,
         completedAt: "completedAt" in t ? t.completedAt : null,
       },

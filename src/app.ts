@@ -8,6 +8,7 @@ import expiryRiskRouter from "./routes/expiry-risk";
 import healthRouter from "./routes/health";
 import lowStockRouter from "./routes/low-stock";
 import medicinesRouter from "./routes/medicines";
+import reportsRouter from "./routes/reports";
 import settingsRouter from "./routes/settings";
 import transfersRouter from "./routes/transfers";
 import usersRouter from "./routes/users";
@@ -26,6 +27,7 @@ app.use("/low-stock", lowStockRouter);
 app.use("/users", usersRouter);
 app.use("/settings", settingsRouter);
 app.use("/branches", branchesRouter);
+app.use("/reports", reportsRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

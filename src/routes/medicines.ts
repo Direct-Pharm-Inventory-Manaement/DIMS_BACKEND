@@ -5,6 +5,7 @@ import {
   createMedicine,
   deleteMedicine,
   getFacets,
+  getInventoryReportSummary,
   getMedicine,
   getSummary,
   listMedicines,
@@ -21,6 +22,7 @@ const listQuerySchema = z.object({
     .optional(),
   category: z.string().min(1).optional(),
   branch: z.string().min(1).optional(),
+  supplier: z.string().min(1).optional(),
   search: z.string().trim().min(1).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(500).default(5),
@@ -73,6 +75,15 @@ router.get("/facets", async (_req, res, next) => {
 router.get("/summary", async (_req, res, next) => {
   try {
     res.json(await getSummary());
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/report-summary", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { page: _page, pageSize: _pageSize, ...filters } = listQuerySchema.parse(req.query);
+    res.json(await getInventoryReportSummary(filters));
   } catch (error) {
     next(error);
   }

@@ -24,8 +24,10 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  passwordOtps      PasswordOtp[]
-  transferRequests  TransferRequest[]
+  passwordOtps         PasswordOtp[]
+  transferRequests     TransferRequest[] @relation("TransferRequestedBy")
+  reviewedTransfers    TransferRequest[] @relation("TransferReviewedBy")
+  reportLogs           ReportLog[]
 }
 
 model Medicine {
@@ -113,8 +115,10 @@ model TransferRequest {
   // which belongs to whoever approves/rejects.
   notes             String    @default("")
   requestedById     String
-  requestedBy       User      @relation(fields: [requestedById], references: [id])
+  requestedBy       User      @relation("TransferRequestedBy", fields: [requestedById], references: [id])
   reviewNote        String    @default("")
+  reviewedById      String?
+  reviewedBy        User?     @relation("TransferReviewedBy", fields: [reviewedById], references: [id])
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   completedAt       DateTime?
@@ -157,6 +161,21 @@ model Branch {
   licenseNumber String   @default("")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+/** One row per report generated (viewed/exported), for the Reports hub's audit trail — no file is stored, just the event. */
+model ReportLog {
+  id              String   @id @default(cuid())
+  // "full-inventory" | "expiry" | "low-stock" | "transfer-history"
+  reportType      String
+  // "pdf" | "csv"
+  format          String
+  fileName        String
+  generatedById   String
+  generatedBy     User     @relation(fields: [generatedById], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model PasswordOtp {

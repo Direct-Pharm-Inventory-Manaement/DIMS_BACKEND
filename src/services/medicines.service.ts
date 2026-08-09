@@ -86,6 +86,7 @@ export interface ListMedicinesParams {
   status?: MedicineStatus;
   category?: string;
   branch?: string;
+  supplier?: string;
   search?: string;
   page: number;
   pageSize: number;
@@ -102,13 +103,14 @@ export interface ListMedicinesResult {
 // SQL can't express portably through Prisma, so rows matching the plain
 // filters are loaded and status filtering/pagination happen in memory.
 // Fine at pharmacy scale; revisit with raw SQL if the catalog grows.
-export async function listMedicines(
-  params: ListMedicinesParams,
-): Promise<ListMedicinesResult> {
+async function loadFiltered(
+  params: Pick<ListMedicinesParams, "status" | "category" | "branch" | "supplier" | "search">,
+): Promise<Medicine[]> {
   const rows = await prisma.medicine.findMany({
     where: {
       category: params.category,
       branch: params.branch,
+      supplier: params.supplier,
       OR: params.search
         ? [
             { name: { contains: params.search } },
@@ -120,11 +122,13 @@ export async function listMedicines(
     },
     orderBy: { name: "asc" },
   });
+  return params.status ? rows.filter((row) => deriveStatus(row) === params.status) : rows;
+}
 
-  const filtered = params.status
-    ? rows.filter((row) => deriveStatus(row) === params.status)
-    : rows;
-
+export async function listMedicines(
+  params: ListMedicinesParams,
+): Promise<ListMedicinesResult> {
+  const filtered = await loadFiltered(params);
   const start = (params.page - 1) * params.pageSize;
   return {
     items: filtered.slice(start, start + params.pageSize).map(toDto),
@@ -134,17 +138,40 @@ export async function listMedicines(
   };
 }
 
+export interface InventoryReportSummary {
+  totalMedicines: number;
+  totalUnits: number;
+  inventoryValueGhs: number;
+  lowStockAlerts: number;
+}
+
+/** Same filters as listMedicines, aggregated over the whole filtered set rather than one page — powers the Full Inventory Report's stat cards. */
+export async function getInventoryReportSummary(
+  params: Pick<ListMedicinesParams, "status" | "category" | "branch" | "supplier" | "search">,
+): Promise<InventoryReportSummary> {
+  const filtered = await loadFiltered(params);
+  return {
+    totalMedicines: filtered.length,
+    totalUnits: filtered.reduce((sum, r) => sum + r.quantity, 0),
+    inventoryValueGhs: Math.round(filtered.reduce((sum, r) => sum + r.quantity * r.unitPriceGhs, 0) * 100) / 100,
+    lowStockAlerts: filtered.filter((r) => deriveStatus(r) === "low-stock").length,
+  };
+}
+
 export async function getFacets(): Promise<{
   categories: string[];
   branches: string[];
+  suppliers: string[];
 }> {
-  const [categories, branches] = await Promise.all([
+  const [categories, branches, suppliers] = await Promise.all([
     prisma.medicine.groupBy({ by: ["category"], orderBy: { category: "asc" } }),
     prisma.medicine.groupBy({ by: ["branch"], orderBy: { branch: "asc" } }),
+    prisma.medicine.groupBy({ by: ["supplier"], orderBy: { supplier: "asc" } }),
   ]);
   return {
     categories: categories.map((c) => c.category),
     branches: branches.map((b) => b.branch),
+    suppliers: suppliers.map((s) => s.supplier).filter((s) => s !== ""),
   };
 }
 

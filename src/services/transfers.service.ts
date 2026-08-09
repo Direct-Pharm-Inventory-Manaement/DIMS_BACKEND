@@ -19,6 +19,7 @@ export interface TransferDto {
   requestedDeliveryDate: string | null;
   notes: string;
   requestedBy: { id: string; name: string };
+  reviewedBy: { id: string; name: string } | null;
   reviewNote: string;
   createdAt: string;
   completedAt: string | null;
@@ -27,6 +28,7 @@ export interface TransferDto {
 function toDto(
   row: Awaited<ReturnType<typeof prisma.transferRequest.findFirstOrThrow>> & {
     requestedBy: { id: string; name: string };
+    reviewedBy: { id: string; name: string } | null;
   },
 ): TransferDto {
   return {
@@ -44,6 +46,7 @@ function toDto(
     requestedDeliveryDate: row.requestedDeliveryDate?.toISOString() ?? null,
     notes: row.notes,
     requestedBy: row.requestedBy,
+    reviewedBy: row.reviewedBy,
     reviewNote: row.reviewNote,
     createdAt: row.createdAt.toISOString(),
     completedAt: row.completedAt?.toISOString() ?? null,
@@ -51,6 +54,10 @@ function toDto(
 }
 
 const REQUESTED_BY_SELECT = { select: { id: true, name: true } };
+const WITH_REVIEWERS = {
+  requestedBy: REQUESTED_BY_SELECT,
+  reviewedBy: REQUESTED_BY_SELECT,
+};
 
 async function generateCode(): Promise<string> {
   const now = new Date();
@@ -92,7 +99,7 @@ export async function listTransfers(params: ListTransfersParams): Promise<{
   const [rows, total] = await Promise.all([
     prisma.transferRequest.findMany({
       where,
-      include: { requestedBy: REQUESTED_BY_SELECT },
+      include: WITH_REVIEWERS,
       orderBy: { createdAt: "desc" },
       skip: (params.page - 1) * params.pageSize,
       take: params.pageSize,
@@ -154,6 +161,38 @@ export async function getBranches(): Promise<string[]> {
   return rows.map((r) => r.branch);
 }
 
+export interface TransferReportSummary {
+  totalTransfers: number;
+  completed: number;
+  rejected: number;
+  totalUnits: number;
+}
+
+/** Same filters as listTransfers, but aggregated over the whole filtered set rather than one page. */
+export async function getReportSummary(
+  params: Omit<ListTransfersParams, "page" | "pageSize">,
+): Promise<TransferReportSummary> {
+  const where = {
+    status: params.status,
+    sourceBranch: params.sourceBranch,
+    createdAt: params.dateFrom ? { gte: new Date(params.dateFrom) } : undefined,
+    OR: params.search
+      ? [
+          { medicineName: { contains: params.search } },
+          { batchNo: { contains: params.search } },
+          { code: { contains: params.search } },
+        ]
+      : undefined,
+  };
+  const rows = await prisma.transferRequest.findMany({ where, select: { status: true, quantity: true } });
+  return {
+    totalTransfers: rows.length,
+    completed: rows.filter((r) => r.status === "completed").length,
+    rejected: rows.filter((r) => r.status === "rejected").length,
+    totalUnits: rows.reduce((sum, r) => sum + r.quantity, 0),
+  };
+}
+
 export interface CreateTransferInput {
   medicineId: string;
   destinationBranch: string;
@@ -200,7 +239,7 @@ export async function createTransfer(
       notes: input.notes ?? "",
       requestedById,
     },
-    include: { requestedBy: REQUESTED_BY_SELECT },
+    include: WITH_REVIEWERS,
   });
   return toDto(created);
 }
@@ -214,7 +253,7 @@ async function getPendingOrThrow(id: string) {
   return transfer;
 }
 
-export async function approveTransfer(id: string): Promise<TransferDto> {
+export async function approveTransfer(id: string, reviewedById: string): Promise<TransferDto> {
   const transfer = await getPendingOrThrow(id);
   const medicine = await prisma.medicine.findUnique({ where: { id: transfer.medicineId } });
   if (!medicine || transfer.quantity > medicine.quantity) {
@@ -222,18 +261,22 @@ export async function approveTransfer(id: string): Promise<TransferDto> {
   }
   const updated = await prisma.transferRequest.update({
     where: { id },
-    data: { status: "approved" },
-    include: { requestedBy: REQUESTED_BY_SELECT },
+    data: { status: "approved", reviewedById },
+    include: WITH_REVIEWERS,
   });
   return toDto(updated);
 }
 
-export async function rejectTransfer(id: string, reviewNote: string): Promise<TransferDto> {
+export async function rejectTransfer(
+  id: string,
+  reviewNote: string,
+  reviewedById: string,
+): Promise<TransferDto> {
   await getPendingOrThrow(id);
   const updated = await prisma.transferRequest.update({
     where: { id },
-    data: { status: "rejected", reviewNote },
-    include: { requestedBy: REQUESTED_BY_SELECT },
+    data: { status: "rejected", reviewNote, reviewedById },
+    include: WITH_REVIEWERS,
   });
   return toDto(updated);
 }
@@ -279,7 +322,7 @@ export async function completeTransfer(id: string): Promise<TransferDto> {
     return tx.transferRequest.update({
       where: { id },
       data: { status: "completed", completedAt: new Date() },
-      include: { requestedBy: REQUESTED_BY_SELECT },
+      include: WITH_REVIEWERS,
     });
   });
 
