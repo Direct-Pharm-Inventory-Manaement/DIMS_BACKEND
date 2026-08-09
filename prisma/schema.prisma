@@ -123,6 +123,42 @@ model TransferRequest {
   @@index([sourceBranch])
 }
 
+/** Single row (id "singleton") holding app-wide configuration; read/written by the settings service only. */
+model SystemSettings {
+  id                   String   @id @default("singleton")
+  systemName           String   @default("Direct Inventory Manager")
+  organizationName     String   @default("Direct Pharmacy")
+  defaultBranch        String   @default("Adenta Main")
+  timezone             String   @default("Africa/Accra")
+  dateFormat           String   @default("DD/MM/YYYY")
+  // Expiry-risk day brackets — drive expiry-risk.service's tier thresholds
+  // and medicines.service's "critical-expiry" status window.
+  criticalAlertDays    Int      @default(30)
+  highRiskDays         Int      @default(60)
+  monitoringDays       Int      @default(90)
+  // Default low-stock threshold applied to newly created medicines that
+  // don't specify their own.
+  minimumStockTrigger  Int      @default(20)
+  // Default trailing-average window for low-stock consumption predictions.
+  predictionWindowDays Int      @default(7)
+  // Persisted but not yet enforced at login — see settings.service.ts.
+  twoFactorRequired    Boolean  @default(false)
+  autoLogoutMinutes    Int      @default(30)
+  updatedAt            DateTime @updatedAt
+}
+
+model Branch {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  // "primary" | "satellite"
+  type          String   @default("satellite")
+  address       String   @default("")
+  phone         String   @default("")
+  licenseNumber String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 model PasswordOtp {
   id         String    @id @default(cuid())
   userId     String

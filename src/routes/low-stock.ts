@@ -15,7 +15,9 @@ router.use(requireAuth);
 
 const baseQuerySchema = z.object({
   branch: z.string().min(1).optional(),
-  windowDays: z.coerce.number().int().positive().max(90).default(7),
+  // No hardcoded default — omitted means "use the admin-configured default"
+  // (Settings → Inventory Thresholds → Prediction Window), resolved in the service layer.
+  windowDays: z.coerce.number().int().positive().max(90).optional(),
 });
 
 const listQuerySchema = baseQuerySchema.extend({

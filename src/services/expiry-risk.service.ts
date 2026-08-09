@@ -1,23 +1,42 @@
 import type { Medicine } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { HttpError } from "../utils/http-error";
+import { getSettings } from "./settings.service";
 
 export type RiskTier = "critical" | "warning" | "advisory";
 export type ExpiryActionType = "clearance" | "transfer" | "review";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const RISK_HORIZON_DAYS = 180;
+
+export interface RiskThresholds {
+  criticalDays: number;
+  warningDays: number;
+  advisoryDays: number;
+}
+
+async function loadThresholds(): Promise<RiskThresholds> {
+  const settings = await getSettings();
+  return {
+    criticalDays: settings.criticalAlertDays,
+    warningDays: settings.highRiskDays,
+    advisoryDays: settings.monitoringDays,
+  };
+}
 
 function daysUntil(date: Date, now = new Date()): number {
   return Math.ceil((date.getTime() - now.getTime()) / DAY_MS);
 }
 
-/** Tier for a batch inside the 180-day risk horizon; null when it's safely out. */
-export function deriveRiskTier(expiryDate: Date, now = new Date()): RiskTier | null {
+/** Tier for a batch inside the configured risk horizon (Settings → Inventory Thresholds); null when it's safely out. */
+export function deriveRiskTier(
+  expiryDate: Date,
+  thresholds: RiskThresholds,
+  now = new Date(),
+): RiskTier | null {
   const days = daysUntil(expiryDate, now);
-  if (days <= 30) return "critical";
-  if (days <= 90) return "warning";
-  if (days <= 180) return "advisory";
+  if (days <= thresholds.criticalDays) return "critical";
+  if (days <= thresholds.warningDays) return "warning";
+  if (days <= thresholds.advisoryDays) return "advisory";
   return null;
 }
 
@@ -66,14 +85,15 @@ function toRow(medicine: MedicineWithActions, tier: RiskTier): ExpiryRiskRow {
 }
 
 async function loadAtRisk(): Promise<{ row: MedicineWithActions; tier: RiskTier }[]> {
-  const horizon = new Date(Date.now() + RISK_HORIZON_DAYS * DAY_MS);
+  const thresholds = await loadThresholds();
+  const horizon = new Date(Date.now() + thresholds.advisoryDays * DAY_MS);
   const rows = await prisma.medicine.findMany({
     where: { expiryDate: { lte: horizon } },
     include: { expiryActions: { select: { id: true } } },
     orderBy: { expiryDate: "asc" },
   });
   return rows.flatMap((row) => {
-    const tier = deriveRiskTier(row.expiryDate);
+    const tier = deriveRiskTier(row.expiryDate, thresholds);
     return tier ? [{ row, tier }] : [];
   });
 }
@@ -172,16 +192,16 @@ export interface RiskDistribution {
 
 /** Share of total stock value by risk band; "safe" is everything not critical. */
 export async function getDistribution(): Promise<RiskDistribution> {
-  const rows = await prisma.medicine.findMany();
+  const [rows, thresholds] = await Promise.all([prisma.medicine.findMany(), loadThresholds()]);
   const value = (r: Medicine) => r.quantity * r.unitPriceGhs;
   const total = rows.reduce((sum, r) => sum + value(r), 0);
   if (total === 0) {
     return { criticalLossPct: 0, underWatchPct: 0, healthySupplyPct: 100, safeStockPct: 100 };
   }
   const pct = (part: number) => Math.round((part / total) * 100);
-  const critical = rows.filter((r) => deriveRiskTier(r.expiryDate) === "critical");
+  const critical = rows.filter((r) => deriveRiskTier(r.expiryDate, thresholds) === "critical");
   const watch = rows.filter((r) => {
-    const tier = deriveRiskTier(r.expiryDate);
+    const tier = deriveRiskTier(r.expiryDate, thresholds);
     return tier === "warning" || tier === "advisory";
   });
   const criticalLossPct = pct(critical.reduce((s, r) => s + value(r), 0));

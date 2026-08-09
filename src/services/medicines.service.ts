@@ -1,6 +1,7 @@
 import type { Medicine } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { HttpError } from "../utils/http-error";
+import { getSettings } from "./settings.service";
 
 export type MedicineStatus =
   | "in-stock"
@@ -233,6 +234,12 @@ export async function createMedicine(input: MedicineInput): Promise<MedicineDto>
     );
   }
 
+  // Falls back to the admin-configured default (Settings → Inventory
+  // Thresholds) rather than the schema's static default when the caller
+  // doesn't specify one explicitly.
+  const lowStockThreshold =
+    input.lowStockThreshold ?? (await getSettings()).minimumStockTrigger;
+
   const created = await prisma.medicine.create({
     data: {
       ...toData(input),
@@ -245,6 +252,7 @@ export async function createMedicine(input: MedicineInput): Promise<MedicineDto>
       quantity: input.quantity,
       unitPriceGhs: input.unitPriceGhs,
       expiryDate: new Date(input.expiryDate),
+      lowStockThreshold,
     },
   });
   return toDto(created);

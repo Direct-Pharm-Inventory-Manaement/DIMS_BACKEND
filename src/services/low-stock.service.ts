@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { getSettings } from "./settings.service";
 
 export type RiskTier = "critical" | "reorder-soon" | "stable";
 
@@ -8,6 +9,12 @@ const REORDER_SOON_DAYS = 10;
 const STOCKOUT_HORIZON_DAYS = 30;
 /** Restocking recommendations target this many days of coverage. */
 const TARGET_COVERAGE_DAYS = 30;
+
+/** Falls back to the admin-configured default (Settings → Inventory Thresholds) when the caller doesn't override it. */
+async function resolveWindowDays(windowDays?: number): Promise<number> {
+  if (windowDays !== undefined) return windowDays;
+  return (await getSettings()).predictionWindowDays;
+}
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
@@ -134,8 +141,9 @@ export interface LowStockSummary {
 
 export async function getSummary(
   branch: string | undefined,
-  windowDays: number,
+  windowDays?: number,
 ): Promise<LowStockSummary> {
+  windowDays = await resolveWindowDays(windowDays);
   const predictions = await buildPredictions(branch, windowDays);
   const critical = predictions.filter((p) => p.riskTier === "critical");
   const reorderSoon = predictions.filter((p) => p.riskTier === "reorder-soon");
@@ -166,7 +174,7 @@ export async function getSummary(
 
 export interface ListPredictionsParams {
   branch?: string;
-  windowDays: number;
+  windowDays?: number;
   outOfStockOnly?: boolean;
   page: number;
   pageSize: number;
@@ -178,7 +186,8 @@ export async function listPredictions(params: ListPredictionsParams): Promise<{
   page: number;
   pageSize: number;
 }> {
-  let predictions = await buildPredictions(params.branch, params.windowDays);
+  const windowDays = await resolveWindowDays(params.windowDays);
+  let predictions = await buildPredictions(params.branch, windowDays);
   if (params.outOfStockOnly) {
     predictions = predictions.filter((p) => p.currentStock === 0);
   }
@@ -205,7 +214,8 @@ export interface BranchRisk {
   label: "Stable" | "Medium Risk" | "High Risk";
 }
 
-export async function getBranchRisk(windowDays: number): Promise<BranchRisk[]> {
+export async function getBranchRisk(windowDays?: number): Promise<BranchRisk[]> {
+  windowDays = await resolveWindowDays(windowDays);
   const branchRows = await prisma.medicine.groupBy({ by: ["branch"], orderBy: { branch: "asc" } });
   const results: BranchRisk[] = [];
   for (const { branch } of branchRows) {
@@ -236,8 +246,9 @@ export interface RestockingRecommendation {
 
 export async function getRestockingRecommendations(
   branch: string | undefined,
-  windowDays: number,
+  windowDays?: number,
 ): Promise<RestockingRecommendation[]> {
+  windowDays = await resolveWindowDays(windowDays);
   const predictions = await buildPredictions(branch, windowDays);
   const medicines = await prisma.medicine.findMany({
     where: { id: { in: predictions.map((p) => p.id) } },
@@ -274,8 +285,9 @@ export interface VelocityPoint {
 /** Actual daily consumption vs a trailing moving-average forecast, over the most recent 7 days of history. */
 export async function getConsumptionVelocity(
   branch: string | undefined,
-  windowDays: number,
+  windowDays?: number,
 ): Promise<VelocityPoint[]> {
+  windowDays = await resolveWindowDays(windowDays);
   const medicines = await prisma.medicine.findMany({
     where: { branch },
     select: { id: true },

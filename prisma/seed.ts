@@ -117,6 +117,30 @@ const users = [
   },
 ];
 
+const branches = [
+  {
+    name: "Adenta Main",
+    type: "primary",
+    address: "Adenta Barrier, Adenta – Accra, Ghana",
+    phone: "+233 30 254 1187",
+    licenseNumber: "PC-GH-00214",
+  },
+  {
+    name: "East Legon",
+    type: "satellite",
+    address: "American House Road, East Legon – Accra, Ghana",
+    phone: "+233 30 254 5521",
+    licenseNumber: "PC-GH-00381",
+  },
+  {
+    name: "Haatso",
+    type: "satellite",
+    address: "Ecomog Junction, Haatso – Accra, Ghana",
+    phone: "+233 30 254 7742",
+    licenseNumber: "PC-GH-00459",
+  },
+] as const;
+
 /** Expiry dates are relative to seed time so every derived status stays represented. */
 function daysFromNow(days: number): Date {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
@@ -203,6 +227,21 @@ const medicines = [
 ];
 
 async function main() {
+  // Not re-upserted on every reseed: only created once so admin edits made
+  // through the Settings page survive a `npm run seed` re-run.
+  await prisma.systemSettings.upsert({
+    where: { id: "singleton" },
+    update: {},
+    create: { id: "singleton" },
+  });
+  for (const branch of branches) {
+    await prisma.branch.upsert({
+      where: { name: branch.name },
+      update: {},
+      create: branch,
+    });
+  }
+
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
   for (const user of users) {
     // Re-seeding refreshes role/status/lastLoginAt so "online now" and
