@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SystemSettings } from "@prisma/client";
 import { prisma } from "../lib/prisma";
@@ -52,19 +52,19 @@ const backendVersion = (() => {
 })();
 
 /** Every field here is a real, currently-observable fact — no simulated backup timestamps or fake quotas. */
-export function getSystemInfo(): SystemInfo {
+export async function getSystemInfo(): Promise<SystemInfo> {
   let dbSizeBytes = 0;
   try {
-    // Prisma resolves a relative DATABASE_URL against the prisma/ folder
-    // (where schema.prisma lives), not the project root.
-    const url = process.env.DATABASE_URL?.replace(/^file:/, "") ?? "./dev.db";
-    dbSizeBytes = statSync(join(__dirname, "../../prisma", url)).size;
+    const [{ size }] = await prisma.$queryRaw<{ size: bigint }[]>`
+      SELECT pg_database_size(current_database()) AS size
+    `;
+    dbSizeBytes = Number(size);
   } catch {
     dbSizeBytes = 0;
   }
   return {
     appVersion: backendVersion,
-    dbEngine: "SQLite",
+    dbEngine: "PostgreSQL",
     dbSizeBytes,
     uptimeSeconds: Math.round(process.uptime()),
     // No backup system exists yet — reporting a fabricated timestamp here

@@ -3,12 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// SQLite has no native enums; role and branch are constrained by zod
-// schemas at the API boundary ("administrator" | "staff", "adenta" | "haatso").
+// Kept as String rather than a native Postgres enum: role/branch are
+// constrained by zod schemas at the API boundary instead, matching how
+// every other status-like field in this schema is already handled.
 model User {
   id           String    @id @default(cuid())
   name         String

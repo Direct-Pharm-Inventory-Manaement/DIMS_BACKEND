@@ -1,0 +1,29 @@
+services:
+  - name: dims-backend
+    type: web
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node dist/index.js
+    preDeployCommand: npx prisma migrate deploy
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Not managed by Render — a Neon (or Supabase) Postgres connection
+      # string. Render prompts for this once when the Blueprint is first
+      # created; set/update it any other time from the service's
+      # Environment tab. See https://neon.tech to create the database.
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      # The Vercel frontend's real URL — update after the frontend is
+      # deployed. Requests from any other origin are rejected by CORS.
+      - key: CORS_ORIGIN
+        value: https://your-app.vercel.app
+      # Demo/dev login bypass (any @gmail.com + shared password) is only
+      # ever active when this is unset outside production anyway, but set
+      # explicitly here so it's never accidentally on in prod.
+      - key: DEV_AUTH_BYPASS
+        value: "false"

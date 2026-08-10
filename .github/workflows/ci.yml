@@ -9,8 +9,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: dims
+          POSTGRES_PASSWORD: dims
+          POSTGRES_DB: dims
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dims"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      DATABASE_URL: file:./ci.db
+      DATABASE_URL: postgresql://dims:dims@localhost:5432/dims
       JWT_SECRET: ci-only-secret
       CORS_ORIGIN: http://localhost:3000
     steps:

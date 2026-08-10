@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dims
+      POSTGRES_PASSWORD: dims
+      POSTGRES_DB: dims
+    ports:
+      - "5433:5432"
+    volumes:
+      - dims-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  dims-postgres-data:

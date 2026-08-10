@@ -57,7 +57,7 @@ router.patch("/", async (req: Request, res: Response, next: NextFunction) => {
 
 router.get("/system-info", async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(getSystemInfo());
+    res.json(await getSystemInfo());
   } catch (error) {
     next(error);
   }
