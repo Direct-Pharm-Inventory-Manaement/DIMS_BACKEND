@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: file:./ci.db
+      JWT_SECRET: ci-only-secret
+      CORS_ORIGIN: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build (also typechecks — build is a raw tsc compile)
+        run: npm run build
+
+      - name: Verify migrations apply cleanly to a fresh database
+        run: npx prisma migrate deploy
+
+      - name: Verify the seed script runs against a freshly migrated database
+        run: npm run seed
