@@ -3,7 +3,11 @@ services:
     type: web
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
+    # --include=dev is required: NODE_ENV=production is set below, and
+    # npm skips devDependencies by default whenever that's set — but
+    # typescript, @types/*, and the prisma CLI (needed to build and to
+    # run migrate deploy at startup) all live there.
+    buildCommand: npm install --include=dev && npm run build
     # preDeployCommand isn't available on the free plan, so migrations run
     # as part of startup instead — functionally the same outcome (schema
     # is current before the app accepts traffic), just on every boot
