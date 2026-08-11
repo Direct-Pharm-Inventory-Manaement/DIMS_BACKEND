@@ -4,8 +4,11 @@ services:
     runtime: node
     plan: free
     buildCommand: npm install && npm run build
-    startCommand: node dist/index.js
-    preDeployCommand: npx prisma migrate deploy
+    # preDeployCommand isn't available on the free plan, so migrations run
+    # as part of startup instead — functionally the same outcome (schema
+    # is current before the app accepts traffic), just on every boot
+    # rather than only on deploy.
+    startCommand: npx prisma migrate deploy && node dist/index.js
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
