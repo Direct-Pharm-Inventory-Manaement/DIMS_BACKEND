@@ -3,6 +3,11 @@ services:
     type: web
     runtime: node
     plan: free
+    # Matches the Neon database's region (AWS US East 2 / Ohio). Left at
+    # Render's default (Oregon) originally — every query was paying a
+    # cross-country round trip, measured at ~2s for a single simple
+    # indexed query alone.
+    region: ohio
     # --include=dev is required: NODE_ENV=production is set below, and
     # npm skips devDependencies by default whenever that's set — but
     # typescript, @types/*, and the prisma CLI (needed to build and to
