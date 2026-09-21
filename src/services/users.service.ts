@@ -194,6 +194,42 @@ export async function setUserStatus(id: string, status: UserAccountStatus): Prom
   return toDto(updated);
 }
 
+/**
+ * A real hard delete, not just a status flip — but only when it's actually
+ * safe. TransferRequest.requestedBy/reviewedBy and ReportLog.generatedBy
+ * all reference User without cascade, so the database itself would reject
+ * this if the account has real linked history; checking first turns that
+ * into a clear message instead of a raw constraint error, and avoids ever
+ * reassigning or destroying that history just to force the delete through.
+ */
+export async function deleteUser(id: string, currentUserId: string): Promise<void> {
+  const existing = await prisma.user.findUnique({ where: { id } });
+  if (!existing) throw new HttpError(404, "User not found.");
+
+  if (id === currentUserId) {
+    throw new HttpError(400, "You cannot delete your own account while logged in as it.");
+  }
+
+  const [requested, reviewed, reports] = await Promise.all([
+    prisma.transferRequest.count({ where: { requestedById: id } }),
+    prisma.transferRequest.count({ where: { reviewedById: id } }),
+    prisma.reportLog.count({ where: { generatedById: id } }),
+  ]);
+  const linkedCount = requested + reviewed + reports;
+  if (linkedCount > 0) {
+    const parts: string[] = [];
+    if (requested > 0) parts.push(`${requested} transfer request${requested === 1 ? "" : "s"} requested`);
+    if (reviewed > 0) parts.push(`${reviewed} transfer request${reviewed === 1 ? "" : "s"} reviewed`);
+    if (reports > 0) parts.push(`${reports} report${reports === 1 ? "" : "s"} generated`);
+    throw new HttpError(
+      409,
+      `Can't delete ${existing.name} — they have real activity on record (${parts.join(", ")}). Suspend the account instead to preserve that history.`,
+    );
+  }
+
+  await prisma.user.delete({ where: { id } });
+}
+
 export async function resetUserPassword(
   id: string,
 ): Promise<{ temporaryPassword: string; emailSent: boolean }> {

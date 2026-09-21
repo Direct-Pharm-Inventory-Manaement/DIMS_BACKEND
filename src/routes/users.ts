@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../middleware/require-auth";
 import {
   createUser,
+  deleteUser,
   getSummary,
   listUsers,
   resetUserPassword,
@@ -88,6 +89,15 @@ router.post("/:id/status", async (req: Request, res: Response, next: NextFunctio
 router.post("/:id/reset-password", async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(await resetUserPassword(req.params.id));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await deleteUser(req.params.id, req.user!.sub);
+    res.status(204).end();
   } catch (error) {
     next(error);
   }
