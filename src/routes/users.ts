@@ -87,8 +87,7 @@ router.post("/:id/status", async (req: Request, res: Response, next: NextFunctio
 
 router.post("/:id/reset-password", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const temporaryPassword = await resetUserPassword(req.params.id);
-    res.json({ temporaryPassword });
+    res.json(await resetUserPassword(req.params.id));
   } catch (error) {
     next(error);
   }

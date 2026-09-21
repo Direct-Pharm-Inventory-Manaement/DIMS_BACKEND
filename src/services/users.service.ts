@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import type { User } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { HttpError } from "../utils/http-error";
+import { sendPasswordResetNotice, sendWelcomeEmail } from "./mailer";
 
 export type UserRole = "super_admin" | "administrator" | "pharmacist" | "store_manager" | "cashier";
 export type UserAccountStatus = "active" | "suspended";
@@ -119,7 +120,7 @@ export interface CreateUserInput {
 
 export async function createUser(
   input: CreateUserInput,
-): Promise<{ user: UserDto; temporaryPassword: string }> {
+): Promise<{ user: UserDto; temporaryPassword: string; emailSent: boolean }> {
   const clash = await prisma.user.findFirst({
     where: { OR: [{ email: input.email.toLowerCase() }, { username: input.username }] },
   });
@@ -139,7 +140,19 @@ export async function createUser(
       passwordHash,
     },
   });
-  return { user: toDto(created), temporaryPassword };
+
+  // The temporary password is still returned in the response below (the
+  // admin can hand it out directly) — email failure shouldn't block user
+  // creation, just fall back to that.
+  let emailSent = true;
+  try {
+    await sendWelcomeEmail(created.email, created.name, created.username, temporaryPassword);
+  } catch (error) {
+    emailSent = false;
+    console.error(`[users] Failed to send welcome email to ${created.email}:`, error);
+  }
+
+  return { user: toDto(created), temporaryPassword, emailSent };
 }
 
 export interface UpdateUserInput {
@@ -181,11 +194,22 @@ export async function setUserStatus(id: string, status: UserAccountStatus): Prom
   return toDto(updated);
 }
 
-export async function resetUserPassword(id: string): Promise<string> {
+export async function resetUserPassword(
+  id: string,
+): Promise<{ temporaryPassword: string; emailSent: boolean }> {
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) throw new HttpError(404, "User not found.");
   const temporaryPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(temporaryPassword, 12);
   await prisma.user.update({ where: { id }, data: { passwordHash } });
-  return temporaryPassword;
+
+  let emailSent = true;
+  try {
+    await sendPasswordResetNotice(existing.email, existing.name, existing.username, temporaryPassword);
+  } catch (error) {
+    emailSent = false;
+    console.error(`[users] Failed to send password reset notice to ${existing.email}:`, error);
+  }
+
+  return { temporaryPassword, emailSent };
 }

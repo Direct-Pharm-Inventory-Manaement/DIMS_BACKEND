@@ -35,3 +35,65 @@ export async function sendOtpEmail(to: string, code: string): Promise<void> {
     text,
   });
 }
+
+export async function sendWelcomeEmail(
+  to: string,
+  name: string,
+  username: string,
+  temporaryPassword: string,
+): Promise<void> {
+  const subject = "Your Direct Inventory Manager account";
+  const text = [
+    `Hi ${name},`,
+    "",
+    "An account has been created for you on Direct Inventory Manager.",
+    "",
+    `Username: ${username}`,
+    `Temporary password: ${temporaryPassword}`,
+    "",
+    "Sign in and change this password as soon as possible.",
+  ].join("\n");
+
+  if (!transporter) {
+    console.log(`[mailer] Welcome email for ${to} (${username}): temp password ${temporaryPassword}`);
+    return;
+  }
+
+  await transporter.sendMail({
+    from: env.smtp!.from,
+    to,
+    subject,
+    text,
+  });
+}
+
+export async function sendPasswordResetNotice(
+  to: string,
+  name: string,
+  username: string,
+  temporaryPassword: string,
+): Promise<void> {
+  const subject = "Your Direct Inventory Manager password was reset";
+  const text = [
+    `Hi ${name},`,
+    "",
+    "An administrator reset your password on Direct Inventory Manager.",
+    "",
+    `Username: ${username}`,
+    `New temporary password: ${temporaryPassword}`,
+    "",
+    "Sign in and change this password as soon as possible. If you didn't expect this, contact your administrator.",
+  ].join("\n");
+
+  if (!transporter) {
+    console.log(`[mailer] Password reset notice for ${to} (${username}): temp password ${temporaryPassword}`);
+    return;
+  }
+
+  await transporter.sendMail({
+    from: env.smtp!.from,
+    to,
+    subject,
+    text,
+  });
+}
