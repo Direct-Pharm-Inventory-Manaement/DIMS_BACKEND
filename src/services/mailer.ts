@@ -1,17 +1,40 @@
-import nodemailer, { type Transporter } from "nodemailer";
 import { env } from "../config/env";
 
-let transporter: Transporter | null = null;
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
-if (env.smtp) {
-  transporter = nodemailer.createTransport({
-    host: env.smtp.host,
-    port: env.smtp.port,
-    secure: env.smtp.port === 465,
-    auth: env.smtp.user
-      ? { user: env.smtp.user, pass: env.smtp.pass }
-      : undefined,
+/** Splits "Name <email@example.com>" into Brevo's {name, email} sender shape. */
+function parseSender(from: string): { name: string; email: string } {
+  const match = from.match(/^(.*)<(.+)>$/);
+  if (match) return { name: match[1].trim(), email: match[2].trim() };
+  return { name: "Direct Inventory Manager", email: from.trim() };
+}
+
+async function sendEmail(to: string, subject: string, text: string): Promise<void> {
+  if (!env.brevo) {
+    // No Brevo API key configured (development): surface the content in the server log.
+    console.log(`[mailer] To: ${to} | Subject: ${subject}\n${text}`);
+    return;
+  }
+
+  const response = await fetch(BREVO_API_URL, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "api-key": env.brevo.apiKey,
+    },
+    body: JSON.stringify({
+      sender: parseSender(env.brevo.from),
+      to: [{ email: to }],
+      subject,
+      textContent: text,
+    }),
   });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Brevo API request failed (${response.status}): ${body}`);
+  }
 }
 
 export async function sendOtpEmail(to: string, code: string): Promise<void> {
@@ -21,19 +44,7 @@ export async function sendOtpEmail(to: string, code: string): Promise<void> {
     "",
     "It expires in 10 minutes. If you did not request this code, you can ignore this email.",
   ].join("\n");
-
-  if (!transporter) {
-    // No SMTP configured (development): surface the code in the server log.
-    console.log(`[mailer] OTP for ${to}: ${code}`);
-    return;
-  }
-
-  await transporter.sendMail({
-    from: env.smtp!.from,
-    to,
-    subject,
-    text,
-  });
+  await sendEmail(to, subject, text);
 }
 
 export async function sendWelcomeEmail(
@@ -53,18 +64,7 @@ export async function sendWelcomeEmail(
     "",
     "Sign in and change this password as soon as possible.",
   ].join("\n");
-
-  if (!transporter) {
-    console.log(`[mailer] Welcome email for ${to} (${username}): temp password ${temporaryPassword}`);
-    return;
-  }
-
-  await transporter.sendMail({
-    from: env.smtp!.from,
-    to,
-    subject,
-    text,
-  });
+  await sendEmail(to, subject, text);
 }
 
 export async function sendPasswordResetNotice(
@@ -84,16 +84,5 @@ export async function sendPasswordResetNotice(
     "",
     "Sign in and change this password as soon as possible. If you didn't expect this, contact your administrator.",
   ].join("\n");
-
-  if (!transporter) {
-    console.log(`[mailer] Password reset notice for ${to} (${username}): temp password ${temporaryPassword}`);
-    return;
-  }
-
-  await transporter.sendMail({
-    from: env.smtp!.from,
-    to,
-    subject,
-    text,
-  });
+  await sendEmail(to, subject, text);
 }

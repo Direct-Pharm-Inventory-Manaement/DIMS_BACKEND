@@ -37,16 +37,13 @@ services:
       # explicitly here so it's never accidentally on in prod.
       - key: DEV_AUTH_BYPASS
         value: "false"
-      # Brevo SMTP relay — host/port/login/sender aren't secret on their
-      # own (the SMTP key is what actually authenticates), but the key
-      # itself is set directly in Render's Environment tab, never here.
-      - key: SMTP_HOST
-        value: smtp-relay.brevo.com
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_USER
-        value: a89938001@smtp-brevo.com
-      - key: SMTP_PASS
+      # Brevo's transactional email HTTP API — switched from raw SMTP
+      # because Render's free plan blocks all outbound traffic on SMTP
+      # ports (25/465/587) entirely; this goes over HTTPS instead, which
+      # isn't blocked. The API key is a real secret, set directly in
+      # Render's Environment tab (sync: false), never committed. The
+      # sender identity isn't secret on its own.
+      - key: BREVO_API_KEY
         sync: false
       - key: SMTP_FROM
         value: "Direct Inventory Manager <abidodd4045@gmail.com>"
