@@ -37,3 +37,16 @@ services:
       # explicitly here so it's never accidentally on in prod.
       - key: DEV_AUTH_BYPASS
         value: "false"
+      # Brevo SMTP relay — host/port/login/sender aren't secret on their
+      # own (the SMTP key is what actually authenticates), but the key
+      # itself is set directly in Render's Environment tab, never here.
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        value: a89938001@smtp-brevo.com
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        value: "Direct Inventory Manager <abidodd4045@gmail.com>"
