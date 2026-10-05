@@ -3,11 +3,11 @@ services:
     type: web
     runtime: node
     plan: free
-    # region: ohio — NOT set here on purpose. Render doesn't support
-    # changing an existing service's region via Blueprint sync, and
-    # leaving this field in the file fails the ENTIRE sync (not just this
-    # one field), which silently blocked every other env var change too.
-    # Re-add once the service is deleted and recreated fresh in Ohio.
+    # Matches the Neon database's region (AWS US East 2 / Ohio) — only
+    # valid because this is going through full service recreation, not a
+    # sync against the existing service (Render rejects region changes on
+    # an existing service and fails the ENTIRE sync when it's present).
+    region: ohio
     # --include=dev is required: NODE_ENV=production is set below, and
     # npm skips devDependencies by default whenever that's set — but
     # typescript, @types/*, and the prisma CLI (needed to build and to
