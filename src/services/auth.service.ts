@@ -97,7 +97,15 @@ export async function loginWithPassword(
     throw new HttpError(403, "This account has been suspended. Contact your administrator.");
   }
 
-  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  // Not awaited: this is bookkeeping for the "online now" display, not
+  // something the caller needs to wait on to get their token. A failure
+  // here means lastLoginAt doesn't update for this one login — it doesn't
+  // affect the session or auth correctness.
+  prisma.user
+    .update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+    .catch((error) => {
+      console.error(`[auth] Failed to update lastLoginAt for ${user.id}:`, error);
+    });
 
   const token = signToken({
     sub: user.id,
