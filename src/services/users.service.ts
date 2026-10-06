@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import type { User } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { HttpError } from "../utils/http-error";
