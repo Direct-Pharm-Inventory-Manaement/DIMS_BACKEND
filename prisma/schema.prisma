@@ -54,6 +54,10 @@ model Medicine {
   storageLocation   String    @default("")
   lowStockThreshold Int       @default(50)
   reorderLevel      Int?
+  // Manually entered by whoever adds/edits the medicine — there's no POS/dispensing
+  // feed in this system, so this is the only source for stockout predictions. Null
+  // until someone sets it, so predictions can tell "no estimate" apart from "0/day".
+  avgDailyConsumption Float?
   manufacturingDate DateTime?
   internalNotes     String    @default("")
   expiryDate        DateTime

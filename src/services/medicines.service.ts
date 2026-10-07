@@ -31,6 +31,7 @@ export interface MedicineDto {
   storageLocation: string;
   lowStockThreshold: number;
   reorderLevel: number | null;
+  avgDailyConsumption: number | null;
   manufacturingDate: string | null;
   internalNotes: string;
   expiryDate: string;
@@ -69,6 +70,7 @@ function toDto(medicine: Medicine): MedicineDto {
     storageLocation: medicine.storageLocation,
     lowStockThreshold: medicine.lowStockThreshold,
     reorderLevel: medicine.reorderLevel,
+    avgDailyConsumption: medicine.avgDailyConsumption,
     manufacturingDate: medicine.manufacturingDate?.toISOString() ?? null,
     internalNotes: medicine.internalNotes,
     expiryDate: medicine.expiryDate.toISOString(),
@@ -219,6 +221,7 @@ export interface MedicineInput {
   storageLocation?: string;
   lowStockThreshold?: number;
   reorderLevel?: number | null;
+  avgDailyConsumption?: number | null;
   manufacturingDate?: string | null;
   internalNotes?: string;
   expiryDate: string;

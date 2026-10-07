@@ -51,6 +51,7 @@ const medicineInputSchema = z.object({
     .min(0, "Minimum stock level cannot be negative.")
     .optional(),
   reorderLevel: z.number().int().min(0).nullable().optional(),
+  avgDailyConsumption: z.number().min(0, "Average daily consumption cannot be negative.").nullable().optional(),
   manufacturingDate: z.iso.datetime().nullable().optional(),
   internalNotes: z.string().trim().optional(),
   expiryDate: z.iso.datetime({ message: "Expiry date must be an ISO date." }),

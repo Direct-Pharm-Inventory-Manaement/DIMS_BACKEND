@@ -38,6 +38,7 @@ interface MedicineForPrediction {
   quantity: number;
   unitPriceGhs: number;
   supplier: string;
+  avgDailyConsumption: number | null;
 }
 
 export interface Prediction {
@@ -97,15 +98,17 @@ async function buildPredictions(
       quantity: true,
       unitPriceGhs: true,
       supplier: true,
+      avgDailyConsumption: true,
     },
   });
-  const usage = await computeAvgDailyUsage(
-    medicines.map((m) => m.id),
-    windowDays,
-  );
+  // Medicines with no manually entered rate still fall back to the
+  // ConsumptionRecord-derived average (only ever populated by seed data today,
+  // since there's no real dispensing feed) rather than silently reading 0.
+  const needsComputed = medicines.filter((m) => m.avgDailyConsumption === null).map((m) => m.id);
+  const usage = await computeAvgDailyUsage(needsComputed, windowDays);
 
   return medicines.map((m) => {
-    const avgDailyUsage = usage.get(m.id) ?? 0;
+    const avgDailyUsage = m.avgDailyConsumption ?? usage.get(m.id) ?? 0;
     const daysUntilDepletion =
       avgDailyUsage > 0 ? m.quantity / avgDailyUsage : null;
     const depletionDate =
